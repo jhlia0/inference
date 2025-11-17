@@ -53,6 +53,7 @@ from . import (
     deepseek_r1_tool_parser,
     deepseek_v3_tool_parser,
     glm4_tool_parser,
+    gpt_oss_tool_parser,
     llama3_tool_parser,
     qwen_tool_parser,
 )

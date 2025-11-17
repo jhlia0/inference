@@ -21556,9 +21556,11 @@
     ],
     "model_ability": [
       "chat",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
-    "model_description": "gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.",
+    "model_description": "gpt-oss series, OpenAI's open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.",
+    "tool_parser": "gpt-oss",
     "model_specs": [
       {
         "model_format": "pytorch",
