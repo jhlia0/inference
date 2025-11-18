@@ -42,6 +42,7 @@ from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GPT_OSS_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
@@ -1030,6 +1031,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             and model_family in QWEN_TOOL_CALL_FAMILY
             or model_family in LLAMA3_TOOL_CALL_FAMILY
             or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            or model_family in GPT_OSS_TOOL_CALL_FAMILY
         ):
             full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
