@@ -138,6 +138,11 @@ class ReasoningParser:
         """
         if not isinstance(model_output, str):
             model_output = model_output["text"]
+
+        # Handle None or empty model_output
+        if model_output is None or model_output == "":
+            return None, ""
+
         # DeepSeek R1 doesn't generate <think> now.
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
