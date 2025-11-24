@@ -31,19 +31,19 @@ class GptOssToolParser(ToolParser):
         super().__init__()
 
         # Sentinel tokens for streaming mode
-        self.tool_call_start_pattern = r"assistantcommentary to=functions\."
+        self.tool_call_start_pattern = r" to=functions\."
         self.tool_call_end_token = "<|call|>"
         self.message_start_token = "<|message|>"
 
         # Regex patterns for parsing tool calls
         # Pattern matches: assistantcommentary to=functions.{name} json{args}
         self.tool_call_complete_regex = re.compile(
-            r"assistantcommentary to=functions\.(\w+)\s+json(\{.*?\})(?:\s*\\?\s*$|\s*\\?\s*(?=assistantcommentary))",
+            r" to=functions\.(\w+)\s+json(\{.*?\})(?:\s*\\?\s*$|\s*\\?\s*(?=assistantcommentary))",
             re.DOTALL,
         )
         # Pattern for incomplete tool calls (for streaming)
         self.tool_call_incomplete_regex = re.compile(
-            r"assistantcommentary to=functions\.(\w+)\s+json(\{.*?)$",
+            r" to=functions\.(\w+)\s+json(\{.*?)$",
             re.DOTALL,
         )
 
@@ -165,6 +165,8 @@ class GptOssToolParser(ToolParser):
             This method is designed to work with GPT-OSS's streaming output format
             and handles partial tool calls during generation.
         """
+        print("======= gptoss stream tool parser ==========")
+        print(previous_text, current_text, delta_text)
         try:
             # Check if current output contains tool call pattern
             if not re.search(self.tool_call_start_pattern, current_text):
