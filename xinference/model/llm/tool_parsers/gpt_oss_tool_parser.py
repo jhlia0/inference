@@ -31,19 +31,19 @@ class GptOssToolParser(ToolParser):
         super().__init__()
 
         # Sentinel tokens for streaming mode
-        self.tool_call_start_pattern = r"<\|start\|>assistant to=functions\."
+        self.tool_call_start_pattern = r"assistantcommentary to=functions\."
         self.tool_call_end_token = "<|call|>"
         self.message_start_token = "<|message|>"
 
         # Regex patterns for parsing tool calls
-        # Pattern matches: <|start|>assistant to=functions.{name}<|channel|>commentary json<|message|>{args}<|call|>
+        # Pattern matches: assistantcommentary to=functions.{name} json{args}
         self.tool_call_complete_regex = re.compile(
-            r"<\|start\|>assistant to=functions\.([^<]+)<\|channel\|>commentary\s+(?:json|text)<\|message\|>(.*?)<\|call\|>",
+            r"assistantcommentary to=functions\.(\w+)\s+json(\{.*?\})(?:\s*\\?\s*$|\s*\\?\s*(?=assistantcommentary))",
             re.DOTALL,
         )
         # Pattern for incomplete tool calls (for streaming)
         self.tool_call_incomplete_regex = re.compile(
-            r"<\|start\|>assistant to=functions\.([^<]+)<\|channel\|>commentary\s+(?:json|text)<\|message\|>(.*?)$",
+            r"assistantcommentary to=functions\.(\w+)\s+json(\{.*?)$",
             re.DOTALL,
         )
 
@@ -106,6 +106,8 @@ class GptOssToolParser(ToolParser):
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
+        print("======= gptoss tool parser ==========")
+        print(model_output)
         # Check if there are any tool calls in the output
         if not re.search(self.tool_call_start_pattern, model_output):
             return [(model_output, None, None)]
@@ -195,8 +197,8 @@ class GptOssToolParser(ToolParser):
             # If we have incomplete tool calls, don't return anything yet
             # (wait for completion)
             if re.search(
-                r"<\|start\|>assistant to=functions\.", current_text
-            ) and not current_text.endswith(self.tool_call_end_token):
+                self.tool_call_start_pattern, current_text
+            ) and self.tool_call_incomplete_regex.search(current_text):
                 return None
 
             # Default: return delta as content

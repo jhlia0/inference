@@ -20,11 +20,49 @@ if TYPE_CHECKING:
 
 
 class HarmonyStreamParser:
+    MARKER = "assistantfinal"
+    COMMENTARY_MARKER = "assistantcommentary"
+
     def __init__(self):
         # Current channel: either 'analysis', 'final', or None if not started yet
         self.current_channel = None
         # Buffer for accumulating text when looking for 'assistantfinal' marker
         self.buffer = ""
+
+    def _find_partial_marker_length(self, text):
+        """
+        Find the length of partial marker at the end of text.
+        Returns the length of the longest partial match, or 0 if no match.
+        """
+        # Check both markers
+        for marker in [self.MARKER, self.COMMENTARY_MARKER]:
+            # Check from longest to shortest prefix
+            for i in range(len(marker), 0, -1):
+                prefix = marker[:i]
+                if text.endswith(prefix):
+                    return i
+        return 0
+
+    def _emit_safe_content(self, segments, channel):
+        """
+        Emit safe content from buffer (everything except potential partial marker at end).
+        Keep only the partial marker portion in buffer.
+        """
+        if not self.buffer:
+            return
+
+        partial_len = self._find_partial_marker_length(self.buffer)
+        if partial_len > 0:
+            # Emit everything before the partial marker
+            safe_content = self.buffer[:-partial_len]
+            if safe_content:
+                segments.append({"channel": channel, "content": safe_content})
+            # Keep only the partial marker in buffer
+            self.buffer = self.buffer[-partial_len:]
+        else:
+            # No partial marker, emit everything
+            segments.append({"channel": channel, "content": self.buffer})
+            self.buffer = ""
 
     def feed(self, text):
         """
@@ -40,14 +78,16 @@ class HarmonyStreamParser:
         splits the reasoning and final content correctly, and switches the channel.
         """
         segments = []
+        print("=========================================")
+        print(text)
 
         # If we are currently in 'analysis' mode
         if self.current_channel == "analysis":
             # Add text to buffer and check for 'assistantfinal' marker
             self.buffer += text
-            if "assistantfinal" in self.buffer:
+            if self.MARKER in self.buffer:
                 # Split reasoning and final content
-                before, after = self.buffer.split("assistantfinal", 1)
+                before, after = self.buffer.split(self.MARKER, 1)
                 if before:
                     segments.append({"channel": "analysis", "content": before})
                 # Switch to final channel
@@ -56,20 +96,21 @@ class HarmonyStreamParser:
                 if after:
                     segments.append({"channel": "final", "content": after})
                 return segments
+            elif self.COMMENTARY_MARKER in self.buffer:
+                # Split at commentary marker
+                before, after = self.buffer.split(self.COMMENTARY_MARKER, 1)
+                if before:
+                    segments.append({"channel": "analysis", "content": before})
+                self.current_channel = "final"
+                self.buffer = ""
+                return segments
             else:
-                # Check if buffer ends with partial 'assistantfinal'
-                if any(
-                    self.buffer.endswith("assistantfinal"[:i])
-                    for i in range(1, len("assistantfinal") + 1)
-                ):
-                    # Don't emit anything yet, wait for more text
-                    return segments
-                else:
-                    # Emit what we have so far and keep buffer for next time
-                    if self.buffer:
-                        segments.append({"channel": "analysis", "content": self.buffer})
-                        self.buffer = ""
-                    return segments
+                # Emit safe content and keep potential partial marker in buffer
+                self._emit_safe_content(segments, "analysis")
+                return segments
+
+        # if self.current_channel == "commentary":
+
 
         # If we are currently in 'final' mode
         if self.current_channel == "final":
@@ -87,33 +128,29 @@ class HarmonyStreamParser:
         # If no channel has been started yet
         if text.startswith("analysis"):
             self.current_channel = "analysis"
-            rest = text[len("analysis") :]
-            if "assistantfinal" in rest:
+            rest = text[len("analysis"):]
+            if self.MARKER in rest:
                 # Split immediately if marker is found in the first chunk
-                before, after = rest.split("assistantfinal", 1)
+                before, after = rest.split(self.MARKER, 1)
                 if before:
                     segments.append({"channel": "analysis", "content": before})
                 self.current_channel = "final"
                 if after:
                     segments.append({"channel": "final", "content": after})
+            elif self.COMMENTARY_MARKER in rest:
+                # Split immediately if marker is found in the first chunk
+                before, after = rest.split(self.COMMENTARY_MARKER, 1)
+                if before:
+                    segments.append({"channel": "analysis", "content": before})
+                self.current_channel = "final"
             else:
-                # Start buffering for potential 'assistantfinal' marker
+                # Start buffering for potential marker
                 self.buffer = rest
-                # Check if buffer ends with partial 'assistantfinal'
-                if any(
-                    self.buffer.endswith("assistantfinal"[:i])
-                    for i in range(1, len("assistantfinal") + 1)
-                ):
-                    # Don't emit anything yet, wait for more text
-                    pass
-                else:
-                    # Emit what we have so far
-                    if self.buffer:
-                        segments.append({"channel": "analysis", "content": self.buffer})
-                        self.buffer = ""
-        elif text.startswith("assistantfinal"):
+                # Emit safe content, keep potential partial marker in buffer
+                self._emit_safe_content(segments, "analysis")
+        elif text.startswith(self.MARKER):
             self.current_channel = "final"
-            rest = text[len("assistantfinal") :]
+            rest = text[len(self.MARKER):]
             if rest:
                 segments.append({"channel": "final", "content": rest})
 
@@ -132,12 +169,13 @@ async def async_stream_harmony_chat_completion(
 
     Yields parsed objects incrementally.
     """
-
+    print("chunks", chunks)
     # --- Non-streaming: ChatCompletion ---
     if isinstance(chunks, dict) and chunks.get("object") == "chat.completion":
         out_data = deepcopy(chunks)
-
+        print("Non-streaming:")
         for choice in out_data["choices"]:
+            print(choice)
             parser = HarmonyStreamParser()
             msg = choice["message"]
 
@@ -158,14 +196,19 @@ async def async_stream_harmony_chat_completion(
                 elif ch == "analysis":
                     msg["reasoning_content"] += c
                 elif ch == "tool":
+                    print("add tool from original_content")
                     msg["tool_calls"].append(c)
 
             # Feed original reasoning_content
             for seg in parser.feed(original_reasoning):
-                if seg["channel"] == "analysis":
-                    msg["reasoning_content"] += seg["content"]
-                elif seg["channel"] == "tool":
-                    msg["tool_calls"].append(seg["content"])
+                ch, c = seg["channel"], seg["content"]
+                if ch == "analysis":
+                    msg["reasoning_content"] += c
+                elif ch == "tool":
+                    print("add tool from original_reasoning")
+                    msg["tool_calls"].append(c)
+                elif ch == "final":
+                    msg["content"] += c
 
             # Clean up reasoning_content: set to None if no reasoning content was parsed
             if not msg["reasoning_content"] and not original_reasoning:
@@ -176,7 +219,7 @@ async def async_stream_harmony_chat_completion(
     else:
         # Streaming: handle async generator
         parsers_per_choice = {}
-
+        print("stream start")
         async for chunk in chunks:  # type: ignore
             out_chunk = {  # type: ignore
                 "id": chunk["id"],
@@ -185,10 +228,13 @@ async def async_stream_harmony_chat_completion(
                 "created": chunk["created"],
                 "choices": [],
             }
-
+            print("stream chunk:")
             for i, choice in enumerate(chunk["choices"]):
+                print("stream choice:", choice)
                 delta = choice.get("delta", {})
-                text = delta.get("content") or ""  # type: ignore
+                # Read from both content and reasoning_content fields
+                # because upstream parsers may put text in reasoning_content
+                text = delta.get("content") or delta.get("reasoning_content") or ""  # type: ignore
 
                 if i not in parsers_per_choice:
                     parsers_per_choice[i] = HarmonyStreamParser()

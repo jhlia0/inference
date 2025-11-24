@@ -44,3 +44,5 @@ AUTHORS
 tests/
 test_*.py
 *_test.py
+.venv
+node_modules

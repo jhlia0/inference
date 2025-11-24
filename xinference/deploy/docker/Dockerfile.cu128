@@ -30,8 +30,9 @@ COPY xinference/deploy/docker/requirements_12.8/ /tmp/requirements_12.8/
 
 # Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
-ARG PIP_INDEX=https://pypi.org/simple
+ARG PIP_INDEX=http://localhost:3141/root/pypi
 RUN --mount=type=cache,target=/root/.cache/pip \
+    PIP_DEFAULT_TIMEOUT=3600 PIP_TIMEOUT=3600 \
     pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
       || wget -O openfst-1.7.2.tar.gz https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.7.2.tar.gz ) && \

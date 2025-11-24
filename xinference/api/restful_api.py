@@ -3010,6 +3010,7 @@ class RESTfulAPI(CancelMixin):
 
         from ..model.llm.utils import (
             GLM4_TOOL_CALL_FAMILY,
+            GPT_OSS_TOOL_CALL_FAMILY,
             QWEN_TOOL_CALL_FAMILY,
             TOOL_CALL_FAMILY,
         )
@@ -3033,6 +3034,7 @@ class RESTfulAPI(CancelMixin):
             if not (
                 ((is_vllm or is_sglang) and model_family in QWEN_TOOL_CALL_FAMILY)
                 or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
+                or (model_family in GPT_OSS_TOOL_CALL_FAMILY)
             ):
                 raise HTTPException(
                     status_code=400,

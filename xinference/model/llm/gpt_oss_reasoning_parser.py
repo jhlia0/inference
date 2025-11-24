@@ -1,6 +1,7 @@
 import re
 from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
 
+from .harmony import HarmonyStreamParser
 from ...types import (
     ChatCompletionChunk,
     ChatCompletionChunkDelta,
@@ -9,7 +10,7 @@ from ...types import (
 )
 
 
-class ReasoningParser:
+class GptOssReasoningParser:
     """Reasoning parser for reasoning model."""
 
     def __init__(
@@ -28,6 +29,9 @@ class ReasoningParser:
         # enable_thinking can be set to False only for hybrid model
         # e.g. qwen3, which can support both thinking and non-thinking
         self.enable_thinking = enable_thinking
+        # GPT-OSS streaming support
+        self.harmony_parser: Optional[HarmonyStreamParser] = None
+        self.is_gpt_oss_mode: bool = False
 
     def extract_reasoning_content_streaming(
         self,
@@ -45,6 +49,32 @@ class ReasoningParser:
             str: Extracted reasoning content chunks.
         """
         delta = ChatCompletionChunkDelta()
+
+        # GPT-OSS format detection and handling
+        # Check if we're in GPT-OSS mode or if content starts with "analysis"
+        if not self.is_gpt_oss_mode:
+            if previous_text.startswith("analysis") or delta_text.startswith("analysis"):
+                self.is_gpt_oss_mode = True
+                self.harmony_parser = HarmonyStreamParser()
+
+        if self.is_gpt_oss_mode:
+            if self.harmony_parser is None:
+                self.harmony_parser = HarmonyStreamParser()
+
+            # Use HarmonyStreamParser for GPT-OSS format
+            reasoning_content = ""
+            content = ""
+
+            for seg in self.harmony_parser.feed(delta_text):
+                ch, c = seg["channel"], seg["content"]
+                if ch == "final":
+                    content += c
+                elif ch == "analysis":
+                    reasoning_content += c
+
+            delta["reasoning_content"] = reasoning_content if reasoning_content else ""
+            delta["content"] = content if content else None
+            return delta
 
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
@@ -140,6 +170,28 @@ class ReasoningParser:
             model_output = model_output["text"]
 
         print(model_output)
+
+        # GPT-OSS
+        if "assistantfinal" in model_output or "assistantcommentary" in model_output:
+            parser = HarmonyStreamParser()
+            msg = {}
+
+            # Reset fields before parsing
+            msg["content"] = ""
+            msg["reasoning_content"] = ""
+            msg.setdefault("tool_calls", [])
+
+            # Feed original content
+            for seg in parser.feed(model_output):
+                ch, c = seg["channel"], seg["content"]
+                if ch == "final":
+                    msg["content"] += c
+                elif ch == "analysis":
+                    msg["reasoning_content"] += c
+                elif ch == "tool":
+                    print("add tool from vllm content")
+                    msg["content"].append(c)
+            return msg["reasoning_content"], msg["content"]
 
         # Handle None or empty model_output
         if model_output is None or model_output == "":
