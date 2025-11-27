@@ -203,6 +203,9 @@ class GptOssReasoningParser:
                     print("add tool from vllm content")
                     msg["content"].append(c)
             return msg["reasoning_content"], msg["content"]
+        elif model_output and model_output.startswith("final"):
+            model_output = model_output[len("final"):]
+            return None, model_output
 
         # Handle None or empty model_output
         if model_output is None or model_output == "":
