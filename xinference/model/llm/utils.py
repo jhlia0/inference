@@ -818,18 +818,20 @@ class ChatModelMixin:
             finish_reason = c["choices"][0]["finish_reason"]
             # For GPT-OSS, content may be in reasoning_content field after reasoning parser
             delta = c["choices"][0]["delta"]
-            delta_text = delta.get("content") or delta.get("reasoning_content") or ""
-            current_text = (
-                previous_texts[-1] + delta_text if previous_texts else delta_text
-            )
-            tool_result = self.tool_parser.extract_tool_calls_streaming(
-                previous_texts,
-                current_text,
-                delta_text,
-            )
-            previous_texts[-1] = current_text
+            delta_text = delta.get("content")
+            if delta_text:
+                current_text = (
+                    previous_texts[-1] + delta_text if previous_texts else delta_text
+                )
+                tool_result = self.tool_parser.extract_tool_calls_streaming(
+                    previous_texts,
+                    current_text,
+                    delta_text,
+                )
+                previous_texts[-1] = current_text
         if tool_result is None and not finish_reason:
             return None
+        print("tool_result:", tool_result)
         tool_calls = []
         failed_contents = []
         content, func, args = tool_result if tool_result else ("", None, None)
@@ -1029,25 +1031,25 @@ class ChatModelMixin:
                 completion_chunk, self.reasoning_parser, previous_texts
             )
 
-            # Always process through tool parser to detect tool calls
-            processed_chunk = self._post_process_completion_chunk(
-                self.model_family,
-                self.model_uid,
-                chat_chunk,
-                previous_texts=previous_tools_texts,
-            )
+            # # Always process through tool parser to detect tool calls
+            # processed_chunk = self._post_process_completion_chunk(
+            #     self.model_family,
+            #     self.model_uid,
+            #     chat_chunk,
+            #     previous_texts=previous_tools_texts,
+            # )
 
-            # Check if tool calls were found
-            if (
-                processed_chunk
-                and processed_chunk.get("choices")
-                and processed_chunk["choices"][0].get("delta", {}).get("tool_calls")
-            ):
-                yield processed_chunk
-                i += 1
-                continue
+            # # Check if tool calls were found
+            # if (
+            #     processed_chunk
+            #     and processed_chunk.get("choices")
+            #     and processed_chunk["choices"][0].get("delta", {}).get("tool_calls")
+            # ):
+            #     yield processed_chunk
+            #     i += 1
+            #     continue
 
-            # No tool calls, check for reasoning content
+            # # No tool calls, check for reasoning content
             if (
                 chat_chunk["choices"]
                 and "reasoning_content" in chat_chunk["choices"][0]["delta"]
@@ -1055,6 +1057,12 @@ class ChatModelMixin:
             ):
                 yield chat_chunk
                 continue
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                chat_chunk,
+                previous_texts=previous_tools_texts,
+            )
 
             if processed_chunk:
                 yield processed_chunk

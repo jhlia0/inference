@@ -101,7 +101,7 @@ class HarmonyStreamParser:
                 before, after = self.buffer.split(self.COMMENTARY_MARKER, 1)
                 if before:
                     segments.append({"channel": "analysis", "content": before})
-                self.current_channel = "final"
+                self.current_channel = "tool"
                 self.buffer = ""
                 return segments
             else:
@@ -124,6 +124,19 @@ class HarmonyStreamParser:
             else:
                 segments.append({"channel": "final", "content": text})
                 return segments
+        
+        # If we are currently in 'tool' mode
+        if self.current_channel == "tool":
+            # Check if this is actually a new message starting with 'analysis'
+            if text.startswith("analysis"):
+                # Reset parser state for new message
+                self.current_channel = None
+                self.buffer = ""
+                # Re-process this text with the new state
+                return self.feed(text)
+            else:
+                segments.append({"channel": "tool", "content": text})
+                return segments
 
         # If no channel has been started yet
         if text.startswith("analysis"):
@@ -142,7 +155,7 @@ class HarmonyStreamParser:
                 before, after = rest.split(self.COMMENTARY_MARKER, 1)
                 if before:
                     segments.append({"channel": "analysis", "content": before})
-                self.current_channel = "final"
+                self.current_channel = "tool"
             else:
                 # Start buffering for potential marker
                 self.buffer = rest
@@ -151,6 +164,11 @@ class HarmonyStreamParser:
         elif text.startswith(self.MARKER):
             self.current_channel = "final"
             rest = text[len(self.MARKER):]
+            if rest:
+                segments.append({"channel": "final", "content": rest})
+        elif text.startswith("final"):
+            self.current_channel = "final"
+            rest = text[len("final"):]
             if rest:
                 segments.append({"channel": "final", "content": rest})
 
@@ -255,6 +273,10 @@ async def async_stream_harmony_chat_completion(
                         curr_delta["reasoning_content"] += c  # type: ignore
                     elif ch == "tool":
                         curr_delta["tool_calls"].append(c)  # type: ignore
+
+                # Only include tool_calls if there are actual tool calls
+                if not curr_delta["tool_calls"]:
+                    del curr_delta["tool_calls"]
 
                 if curr_delta["reasoning_content"]:
                     if not curr_delta["content"]:

@@ -37,13 +37,14 @@ class GptOssToolParser(ToolParser):
 
         # Regex patterns for parsing tool calls
         # Pattern matches: assistantcommentary to=functions.{name} json{args}
+        # Note: [\w-]+ allows function names with hyphens
         self.tool_call_complete_regex = re.compile(
-            r" to=functions\.(\w+)\s+json(\{.*?\})(?:\s*\\?\s*$|\s*\\?\s*(?=assistantcommentary))",
+            r" to=functions\.([\w-]+)\s+json(\{.*?\})(?:\s*\\?\s*$|\s*\\?\s*(?=assistantcommentary))",
             re.DOTALL,
         )
         # Pattern for incomplete tool calls (for streaming)
         self.tool_call_incomplete_regex = re.compile(
-            r" to=functions\.(\w+)\s+json(\{.*?)$",
+            r" to=functions\.([\w-]+)\s+json(\{.*?)$",
             re.DOTALL,
         )
 
@@ -166,11 +167,12 @@ class GptOssToolParser(ToolParser):
             and handles partial tool calls during generation.
         """
         print("======= gptoss stream tool parser ==========")
-        print(previous_text, current_text, delta_text)
+        print("previous_text:", previous_text, "current_text:", current_text, "delta_text:", delta_text)
         try:
             # Check if current output contains tool call pattern
             if not re.search(self.tool_call_start_pattern, current_text):
                 # No tool call, return delta as regular content
+                print("f1")
                 return (delta_text, None, None)
 
             # Check for complete tool calls
@@ -189,11 +191,13 @@ class GptOssToolParser(ToolParser):
                         prev_complete
                         and (function_name, arguments_str) == prev_complete[-1]
                     ):
+                        print("f2")
                         # This tool call was already processed
                         return None
 
                 # Parse and return the tool call
                 result = self._parse_tool_call_content(function_name, arguments_str)
+                print("f3")
                 return result
 
             # If we have incomplete tool calls, don't return anything yet
@@ -201,8 +205,9 @@ class GptOssToolParser(ToolParser):
             if re.search(
                 self.tool_call_start_pattern, current_text
             ) and self.tool_call_incomplete_regex.search(current_text):
+                print("f4")
                 return None
-
+            print("f5")
             # Default: return delta as content
             return (delta_text, None, None)
 
