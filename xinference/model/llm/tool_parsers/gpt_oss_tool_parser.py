@@ -31,7 +31,7 @@ class GptOssToolParser(ToolParser):
         super().__init__()
 
         # Sentinel tokens for streaming mode
-        self.tool_call_start_pattern = r" to=functions\."
+        self.tool_call_start_pattern = r" to"
         self.tool_call_end_token = "<|call|>"
         self.message_start_token = "<|message|>"
 
@@ -43,8 +43,14 @@ class GptOssToolParser(ToolParser):
             re.DOTALL,
         )
         # Pattern for incomplete tool calls (for streaming)
+        # This matches any of these incomplete states:
+        # 1. " to", " to=", " to=f", " to=fu", ..., " to=functions" (partial prefix)
+        # 2. " to=functions.", " to=functions.{partial_name}" (partial or no function name)
+        # 3. " to=functions.{name}" (no json keyword yet)
+        # 4. " to=functions.{name} j", " to=functions.{name} js", " to=functions.{name} json" (partial or complete json keyword)
+        # 5. " to=functions.{name} json{..." (incomplete JSON)
         self.tool_call_incomplete_regex = re.compile(
-            r" to=functions\.([\w-]+)\s+json(\{.*?)$",
+            r" to(?:=(?:f(?:u(?:n(?:c(?:t(?:i(?:o(?:n(?:s(?:\.(?:[\w-]+)?)?)?)?)?)?)?)?)?)?)?(?:\s+(?:j(?:s(?:o(?:n(?:\{.*?)?)?)?)?)?)?)?$",
             re.DOTALL,
         )
 
