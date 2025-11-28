@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
 from .reasoning_parser import ReasoningParser
+from .gpt_oss_reasoning_parser import GptOssReasoningParser
 from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
@@ -167,13 +168,23 @@ class LLM(abc.ABC):
             warnings.warn(
                 "enable_thinking cannot be disabled for non hybrid model, will be ignored"
             )
-        # Initialize reasoning parser if model has reasoning ability
-        self.reasoning_parser = ReasoningParser(  # type: ignore
-            reasoning_content,
-            self.model_family.reasoning_start_tag,  # type: ignore
-            self.model_family.reasoning_end_tag,  # type: ignore
-            enable_thinking=enable_thinking,
-        )
+
+        if self.model_family.model_name == "gpt-oss":
+            # Initialize reasoning parser if model has reasoning ability
+            self.reasoning_parser = GptOssReasoningParser(  # type: ignore
+                reasoning_content,
+                self.model_family.reasoning_start_tag,  # type: ignore
+                self.model_family.reasoning_end_tag,  # type: ignore
+                enable_thinking=enable_thinking,
+            )
+        else:
+            # Initialize reasoning parser if model has reasoning ability
+            self.reasoning_parser = ReasoningParser(  # type: ignore
+                reasoning_content,
+                self.model_family.reasoning_start_tag,  # type: ignore
+                self.model_family.reasoning_end_tag,  # type: ignore
+                enable_thinking=enable_thinking,
+            )
 
     def prepare_parse_tool_calls(self):
         if self.model_family.tool_parser is None:

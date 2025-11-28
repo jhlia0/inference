@@ -34,6 +34,7 @@ The ``tools`` ability is supported with the following models in Xinference:
 
 * :ref:`models_llm_glm4-chat`
 * :ref:`models_llm_glm4-chat-1m`
+* :ref:`models_llm_gpt-oss`
 * :ref:`models_llm_llama-3.1-instruct`
 * :ref:`models_llm_llama-3.3-instruct`
 * :ref:`models_llm_qwen1.5-chat`
