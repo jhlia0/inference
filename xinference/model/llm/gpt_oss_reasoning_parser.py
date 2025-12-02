@@ -48,7 +48,6 @@ class GptOssReasoningParser:
         Yields:
             str: Extracted reasoning content chunks.
         """
-        print("extract_reasoning_content_streaming, previous_text:", previous_text, "current_text:", current_text, "delta_text:", delta_text)
         delta = ChatCompletionChunkDelta()
 
         # GPT-OSS format detection and handling
@@ -68,8 +67,6 @@ class GptOssReasoningParser:
 
             for seg in self.harmony_parser.feed(delta_text):
                 ch, c = seg["channel"], seg["content"]
-                print("====== seg channel, content =========")
-                print(ch, c)
                 if ch == "final":
                     content += c
                 elif ch == "analysis":
@@ -180,8 +177,6 @@ class GptOssReasoningParser:
         if not isinstance(model_output, str):
             model_output = model_output["text"]
 
-        print("model_output:", model_output)
-
         # GPT-OSS
         if "assistantfinal" in model_output or "assistantcommentary" in model_output:
             parser = HarmonyStreamParser()
@@ -200,7 +195,6 @@ class GptOssReasoningParser:
                 elif ch == "analysis":
                     msg["reasoning_content"] += c
                 elif ch == "tool":
-                    print("add tool from vllm content")
                     msg["content"].append(c)
             return msg["reasoning_content"], msg["content"]
         elif model_output and model_output.startswith("final"):
