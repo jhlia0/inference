@@ -48,8 +48,8 @@ class ReasoningParser:
 
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
-        if self.reasoning_start_tag in previous_text:
-            if self.reasoning_end_tag in delta_text:
+        if self.reasoning_start_tag and self.reasoning_start_tag in previous_text:
+            if self.reasoning_end_tag and self.reasoning_end_tag in delta_text:
                 # <think> in previous, </think> in delta,
                 # extract reasoning content
                 end_idx = delta_text.find(self.reasoning_end_tag)
@@ -61,7 +61,7 @@ class ReasoningParser:
                 else:
                     delta["content"] = None
                 return delta
-            elif self.reasoning_end_tag in previous_text:
+            elif self.reasoning_end_tag and self.reasoning_end_tag in previous_text:
                 # <think> in previous, </think> in previous,
                 # <think> in previous, </think> in previous,
                 # reasoning content ends
@@ -74,9 +74,9 @@ class ReasoningParser:
                 delta["reasoning_content"] = delta_text
                 delta["content"] = None
                 return delta
-        elif self.reasoning_start_tag in delta_text:
+        elif self.reasoning_start_tag and self.reasoning_start_tag in delta_text:
             start_idx = delta_text.find(self.reasoning_start_tag)
-            if self.reasoning_end_tag in delta_text:
+            if self.reasoning_end_tag and self.reasoning_end_tag in delta_text:
                 # <think> in delta, </think> in delta, extract reasoning content
                 end_idx = delta_text.find(self.reasoning_end_tag)
                 reasoning_content = delta_text[
@@ -102,7 +102,7 @@ class ReasoningParser:
             # No <think> in previous or delta, also need to check for </think>.
             # Because the model may have generated </think> without <think>
             # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
-            if self.reasoning_end_tag in delta_text:
+            if self.reasoning_end_tag and self.reasoning_end_tag in delta_text:
                 # </think> in delta with more tokens,
                 # extract reasoning content and content
                 end_idx = delta_text.find(self.reasoning_end_tag)
@@ -114,7 +114,7 @@ class ReasoningParser:
                 else:
                     delta["content"] = None
                 return delta
-            elif self.reasoning_end_tag in previous_text:
+            elif self.reasoning_end_tag and self.reasoning_end_tag in previous_text:
                 # </think> in previous, thinking content ends
                 delta["reasoning_content"] = None
                 delta["content"] = delta_text
@@ -138,14 +138,19 @@ class ReasoningParser:
         """
         if not isinstance(model_output, str):
             model_output = model_output["text"]
+
+        # Handle None or empty model_output
+        if model_output is None or model_output == "":
+            return None, ""
+
         # DeepSeek R1 doesn't generate <think> now.
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
-        if self.reasoning_end_tag not in model_output:
+        if not self.reasoning_end_tag or self.reasoning_end_tag not in model_output:
             return model_output, ""
         else:
             # Add a start token if it's missing to keep compatibility.
-            if self.reasoning_start_tag not in model_output:
+            if not self.reasoning_start_tag or self.reasoning_start_tag not in model_output:
                 model_output = f"{self.reasoning_start_tag}{model_output}"
             # Use a regex to find the reasoning content
             reasoning_content = self.reasoning_regex.findall(model_output)[0]

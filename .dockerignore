@@ -5,3 +5,44 @@ build/
 xinference.egg-info/
 xinference/web/ui/build/
 xinference/web/ui/node_modules/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# Documentation
+*.md
+LICENSE
+AUTHORS
+
+# Test files
+tests/
+test_*.py
+*_test.py
+.venv
+node_modules
